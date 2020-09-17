@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:cloudhub="http://www.mulesoft.org/schema/mule/cloudhub" xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/cloudhub http://www.mulesoft.org/schema/mule/cloudhub/current/mule-cloudhub.xsd">
+	<http:listener-config name="HTTP_Listener_config1" doc:name="HTTP Listener config" doc:id="5afb56f4-376e-4b30-8a6b-73a708e8a3d9" >
+		<http:listener-connection host="0.0.0.0" port="${http.port}" />
+	</http:listener-config>
+	<file:config name="File_Config1" doc:name="File Config" doc:id="b5bd5165-b044-49a3-8d27-9da0ff7b33c4" >
+		<file:connection workingDir="${file.path}" />
+	</file:config>
+	<configuration-properties doc:name="Configuration properties" doc:id="3362951d-a035-4c3b-8220-f8509a6426e3" file="${env}.config.yaml" />
+	<http:request-config name="HTTP_Request_configuration3" doc:name="HTTP Request configuration" doc:id="9b79f68c-c272-4fec-ba20-8483226ad244" enableCookies="false" >
+		<http:request-connection protocol="HTTPS" host="anypoint.mulesoft.com" />
+	</http:request-config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="82bb3a3f-d363-4590-9173-d292d4fc8ef2" >
+		<file:connection workingDir="${file.pathAuditlogs}" />
+	</file:config>
+	<configuration doc:name="Configuration" doc:id="37f8b8e4-0760-4692-a48a-019738c20008" defaultErrorHandler-ref="globalError_Handler" />
+	<global-property doc:name="Global Property" doc:id="19932c75-78c5-4057-b011-22f33ff18272" name="env" value="dev" />
+	<error-handler name="globalError_Handler" doc:id="b9a23a04-2405-4e1a-9235-2179179cd77f" >
+		<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="8b6a3c7a-9373-4fff-a332-eac82ae15986" >
+			<logger level="INFO" doc:name="Logger" doc:id="aeebed32-82f7-4664-aa8e-1df74d6e2540" />
+		</on-error-propagate>
+	</error-handler>
+</mule>

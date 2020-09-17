@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:cloudhub="http://www.mulesoft.org/schema/mule/cloudhub" xmlns:batch="http://www.mulesoft.org/schema/mule/batch"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd
+http://www.mulesoft.org/schema/mule/cloudhub http://www.mulesoft.org/schema/mule/cloudhub/current/mule-cloudhub.xsd">
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="2a6772cd-3a2b-44cf-834d-391ae2745cdb" >
+		<http:request-connection protocol="HTTPS" host="anypoint.mulesoft.com" />
+	</http:request-config>
+	<flow name="cloudhub_logs_demoFlow" doc:id="a6cd9105-df21-4baa-aaaf-069c7eeef817" >
+		<http:listener doc:name="/get cloudhublogs" doc:id="131c711f-657b-4452-bca7-f2e598cb5e28" path="/cloudhublogs" config-ref="HTTP_Listener_config1"/>
+		<logger level="INFO" doc:name="Logger" doc:id="38dbe7cc-4eee-48e4-94e9-b7619b5ba69d" message="Flow started"/>
+		<http:request method="POST" doc:name="/getting access token" doc:id="13856c5b-f0af-421c-a3f7-6d677180ea16" path="/accounts/login" config-ref="HTTP_Request_configuration3">
+			<http:query-params><![CDATA[#[output application/java
+---
+{
+	"username" : "${anypoint.username}",
+	"password" : "${anypoint.password}"
+}]]]></http:query-params>
+		</http:request>
+		<ee:transform doc:name="accessToken to JSON" doc:id="50811586-b67b-40b9-9cb9-f9873f7b30c2">
+			<ee:message>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="accessToken"><![CDATA[%dw 2.0
+output application/json
+---
+payload."access_token"]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<http:request method="GET" doc:name="/getting the list of applications in cloudhub" doc:id="accc58ff-1940-492c-8ce6-ea68c171a2c5" config-ref="HTTP_Request_configuration3" path="/cloudhub/api/v2/applications">
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"X-ANYPNT-ENV-ID" : "${anypoint.envid}",
+	"Authorization" : "bearer " ++ vars.accessToken
+}]]]></http:headers>
+			<http:query-params><![CDATA[#[output application/java
+---
+{
+	"retrieveStatistics" : "false",
+	"retrieveIpAddresses" : "false",
+	"retrieveLogLevels" : "false",
+	"retrieveTrackingSettings" : "false",
+	"period" : 3600000
+}]]]></http:query-params>
+		</http:request>
+		<logger level="INFO" doc:name="Logger" doc:id="23ebac12-64c2-443c-b0a9-43f941c28543" message="#[payload]"/>
+		<ee:transform doc:name="Transform Message" doc:id="2c205d9e-0a8a-45f0-a34a-c8660f7f5974" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload map($.domain)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<batch:job jobName="cloudhub_logs_demoBatch_Job" doc:id="16fbd89d-1525-4c43-bd6b-cf2887438175" >
+			<batch:process-records >
+				<batch:step name="Batch_Step" doc:id="05f7c8f4-1ff7-41db-a9bc-762b52f38064" >
+					<set-variable value="#[payload]" doc:name="domain" doc:id="230d636e-65cd-4130-9655-d84256e7aad1" variableName="domain"/>
+					<http:request method="GET" doc:name="/getting instance id" doc:id="8d7b617b-d594-4e98-b3dd-f90a82ebb140" path="/cloudhub/api/v2/applications/{appname}/deployments?orderByDate=DESC" config-ref="HTTP_Request_configuration3">
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"X-ANYPNT-ENV-ID" : "${anypoint.envid}",
+	"Authorization" : "bearer " ++ vars.accessToken
+}]]]></http:headers>
+			<http:uri-params><![CDATA[#[output application/java
+---
+{
+	"appname" : vars.domain
+}]]]></http:uri-params>
+		</http:request>
+					<ee:transform doc:name="to JSON and formatting instance ID" doc:id="7671c8b5-a133-4348-be5b-403b9ba3d7af">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+(flatten(payload.data.instances)).instanceId reduce ($)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+					<http:request method="GET" doc:name="/getting cloudHub LOGS" doc:id="7c0af905-ebb9-4106-8842-8be4797e2fd8" config-ref="HTTP_Request_configuration3" path="/cloudhub/api/v2/applications/{appname}/instances/{instance_id}/log-file">
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"X-ANYPNT-ENV-ID" : "${anypoint.envid}",
+	"Authorization" : "bearer " ++ vars.accessToken
+}]]]></http:headers>
+			<http:uri-params><![CDATA[#[output application/java
+---
+{
+	"appname" : vars.domain,
+	"instance_id" : payload
+}]]]></http:uri-params>
+		</http:request>
+					<set-variable value='#[%dw 2.0
+output application/json
+var time = ((now() as String splitBy  ".")[0][11 to 15]) replace ":" with "-"
+---
+(now() as String splitBy "T")[0] ++ " " ++ "Time " ++ time]' doc:name="/settingFileName" doc:id="76cf0bdc-f0e3-44a3-892b-b2ce4ca773b4" variableName="time" />
+					<file:write doc:name="/wriring to local directory" doc:id="3c602deb-b20b-40fb-b597-29d2e1c799e8" config-ref="File_Config1" path='#[vars.domain ++ "-cloudLogs " ++ vars.time ++ ".txt"]' mode="CREATE_NEW" />
+				</batch:step>
+			</batch:process-records>
+		</batch:job>
+	</flow>
+</mule>

@@ -1,0 +1,18 @@
+anypoint:
+  username : ""
+  password : ""
+  envid : ""
+  orgid : ""
+  
+http:
+  port: "" 
+  
+file:
+
+  path: ""
+  pathAuditlogs : ""
+  
+audit:
+
+  startdate: ""
+  userid:   ""

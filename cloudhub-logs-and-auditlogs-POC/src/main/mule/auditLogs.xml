@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+	<flow name="auditLogsFlow" doc:id="4c19def9-dd13-47aa-8876-fa4747a2becb" >
+		<http:listener doc:name="/get auditLogs" doc:id="1b0f3554-4e02-49a2-a94b-23a33186d9b3" config-ref="HTTP_Listener_config1" path="/auditLogs"/>
+		<http:request method="POST" doc:name="/getting access token" doc:id="0ff8077e-d0bc-427f-813e-dd3e83561918" config-ref="HTTP_Request_configuration3" path="/accounts/login" >
+			<http:query-params ><![CDATA[#[output application/java
+---
+{
+	"username" : "${anypoint.username}",
+	"password" : "${anypoint.password}"
+}]]]></http:query-params>
+		</http:request>
+		<ee:transform doc:name="accessToken to JSON" doc:id="9566b5ed-a7e4-475b-a95d-c5628853a9d1">
+			<ee:message />
+			<ee:variables>
+				<ee:set-variable variableName="accessToken"><![CDATA[%dw 2.0
+output application/json
+---
+payload."access_token"]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<http:request method="POST" doc:name="/getting the audit logs" doc:id="4d764f3b-9417-45a1-936e-9289340f608d" config-ref="HTTP_Request_configuration3" path="/audit/v2/organizations/{orgID}/query">
+			<http:body ><![CDATA[#[output application/json
+---
+{
+	"startDate" : "${audit.startdate}",
+	"userId":  "${audit.userid}"
+}]]]></http:body>
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"Authorization" : "bearer " ++ vars.accessToken,
+	"Content-Type" : "application/json"
+}]]]></http:headers>
+			<http:uri-params ><![CDATA[#[output application/java
+---
+{
+	"orgID" : "${anypoint.orgid}"
+}]]]></http:uri-params>
+		</http:request>
+		<ee:transform doc:name="Transform Message" doc:id="b72124cb-23e2-4acc-8304-65f3f4f310c8" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-variable value='#[%dw 2.0
+output application/json
+var time = ((now() as String splitBy  ".")[0][11 to 15]) replace ":" with "-"
+---
+(now() as String splitBy "T")[0] ++ " " ++ "Time " ++ time]' doc:name="/settingFileName" doc:id="3f31f27e-a0bd-4b24-a15b-271319052024" variableName="time" />
+		<file:write doc:name="/writing audit file" doc:id="c82ca768-cd18-4b01-b76f-ef442e935953" config-ref="File_Config" path='#["auditlogs " ++ vars.time ++ ".txt"]' mode="CREATE_NEW"/>
+	</flow>
+</mule>
